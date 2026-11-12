@@ -1,0 +1,37 @@
+name: agentic-sql-analyst
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shop
+      POSTGRES_USER: shop_owner
+      POSTGRES_PASSWORD: shop_owner_password
+      TZ: UTC
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Healthy only after init scripts finished and the read-only role can log in.
+      test: ["CMD-SHELL", "PGPASSWORD=analyst_ro_password psql -h 127.0.0.1 -U analyst_ro -d shop -tAc 'SELECT 1 FROM order_items LIMIT 1' | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  app:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://analyst_ro:analyst_ro_password@db:5432/shop
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

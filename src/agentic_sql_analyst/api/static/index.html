@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic SQL Analyst</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
+    --accent: #3b5bdb; --accent-soft: #edf1ff; --ok: #2b8a3e; --ok-soft: #ebfbee;
+    --err: #c92a2a; --err-soft: #fff0f0; --info: #e67700; --info-soft: #fff4e6;
+    --code-bg: #f1f3f5; --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --panel: #1a1e26; --text: #e6e8ec; --muted: #9aa3b2; --border: #2b313c;
+      --accent: #7c95ff; --accent-soft: #232b45; --ok: #69db7c; --ok-soft: #1c2e22;
+      --err: #ff8787; --err-soft: #3a1f22; --info: #ffc078; --info-soft: #3a2c1a; --code-bg: #12161d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; margin-bottom: 18px; }
+  h1 { font-size: 22px; margin: 0; }
+  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .ask { display: flex; gap: 10px; }
+  .ask textarea { flex: 1; resize: vertical; min-height: 48px; padding: 10px 12px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+  button.primary { padding: 0 22px; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
+  button.primary:disabled { opacity: .6; cursor: progress; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--accent-soft); color: var(--text); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .status { padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
+  .status.success { background: var(--ok-soft); color: var(--ok); }
+  .status.refused { background: var(--info-soft); color: var(--info); }
+  .status.failed { background: var(--err-soft); color: var(--err); }
+  .summary { font-size: 16px; margin: 0 0 8px; }
+  ul.findings { margin: 0; padding-left: 20px; color: var(--muted); }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } .ask { flex-direction: column; } button.primary { padding: 10px; } }
+  .trace { display: flex; flex-direction: column; gap: 6px; }
+  .step { display: grid; grid-template-columns: 22px 120px 1fr auto; gap: 8px; align-items: start; font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--bg); }
+  .step .dot { width: 10px; height: 10px; border-radius: 50%; margin: 5px 6px; }
+  .step.ok .dot { background: var(--ok); } .step.error .dot { background: var(--err); } .step.info .dot { background: var(--info); }
+  .step .node { font-family: var(--mono); font-weight: 600; }
+  .step .detail { color: var(--muted); word-break: break-word; }
+  .step .ms { color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+  pre { margin: 0; padding: 12px; background: var(--code-bg); border-radius: 8px; overflow-x: auto; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
+  .attempt { border-left: 3px solid var(--err); padding-left: 10px; margin-bottom: 12px; }
+  .attempt .err { color: var(--err); font-size: 13px; margin: 6px 0 0; font-family: var(--mono); white-space: pre-wrap; }
+  .table-wrap { overflow-x: auto; max-height: 420px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #chart { width: 100%; }
+  details summary { cursor: pointer; color: var(--muted); }
+  .hidden { display: none; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Agentic SQL Analyst <small>LangGraph · sqlglot sandbox · PostgreSQL read-only · self-repair loop</small></h1>
+    <div class="badges">
+      <span class="badge" id="llmBadge">LLM: …</span>
+      <span class="badge" id="dbBadge">DB: …</span>
+      <a class="badge" href="/docs" target="_blank" rel="noopener">OpenAPI /docs</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <form class="ask" id="askForm">
+      <textarea id="question" rows="2" placeholder="Задайте аналитический вопрос, например: «Каковы топ-3 категории товаров с наибольшим падением выручки во 2 квартале 2026 года?»"></textarea>
+      <button class="primary" id="askBtn" type="submit">Спросить</button>
+    </form>
+    <div class="chips" id="examples"></div>
+  </section>
+
+  <div id="result" class="hidden">
+    <section class="panel">
+      <div class="status" id="status"></div>
+      <p class="summary" id="summary"></p>
+      <ul class="findings" id="findings"></ul>
+    </section>
+
+    <div id="details">
+    <section class="panel" id="chartPanel">
+      <h2>График (Vega-Lite)</h2>
+      <div id="chart"></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Трасса графа агентов</h2>
+        <div class="trace" id="trace"></div>
+        <p class="muted" id="elapsed"></p>
+      </section>
+      <section class="panel">
+        <h2>Итоговый SQL</h2>
+        <pre id="sql"></pre>
+        <div id="attemptsBlock" class="hidden" style="margin-top:14px">
+          <h2>Неудачные попытки → self-repair</h2>
+          <div id="attempts"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" id="dataPanel">
+      <h2>Данные (<span id="rowCount">0</span> строк)</h2>
+      <div class="table-wrap"><table id="table"></table></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>План аналитика (planner JSON)</summary>
+        <pre id="plan" style="margin-top:10px"></pre>
+      </details>
+    </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STATUS_TEXT = { success: "Ответ получен", refused: "Безопасный отказ: вопрос вне данных", failed: "Безопасный отказ" };
+
+function el(tag, attrs = {}, text) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+async function loadMeta() {
+  try {
+    const health = await (await fetch("/health")).json();
+    $("llmBadge").textContent = "LLM: " + health.llm_provider;
+    $("dbBadge").textContent = "DB: " + health.database;
+    $("dbBadge").className = "badge " + (health.database === "ok" ? "ok" : "err");
+  } catch { $("dbBadge").textContent = "API недоступен"; $("dbBadge").className = "badge err"; }
+  try {
+    const examples = await (await fetch("/examples")).json();
+    for (const ex of examples) {
+      const chip = el("button", { class: "chip", type: "button", title: ex.question }, ex.title);
+      chip.addEventListener("click", () => { $("question").value = ex.question; ask(); });
+      $("examples").appendChild(chip);
+    }
+  } catch { /* examples are optional */ }
+}
+
+function renderTrace(trace) {
+  const box = $("trace"); box.replaceChildren();
+  for (const step of trace) {
+    const row = el("div", { class: "step " + step.status });
+    row.append(el("span", { class: "dot" }), el("span", { class: "node" }, step.node),
+               el("span", { class: "detail" }, step.detail), el("span", { class: "ms" }, step.duration_ms + " ms"));
+    box.appendChild(row);
+  }
+}
+
+function renderAttempts(attempts) {
+  const box = $("attempts"); box.replaceChildren();
+  $("attemptsBlock").classList.toggle("hidden", attempts.length === 0);
+  for (const a of attempts) {
+    const item = el("div", { class: "attempt" });
+    item.append(el("div", { class: "muted" }, `Попытка ${a.attempt} · отклонено на этапе ${a.stage}`),
+                el("pre", {}, a.sql || "(пустой SQL)"), el("p", { class: "err" }, a.error));
+    box.appendChild(item);
+  }
+}
+
+function renderTable(columns, rows) {
+  const table = $("table"); table.replaceChildren();
+  $("rowCount").textContent = rows.length;
+  $("dataPanel").classList.toggle("hidden", rows.length === 0);
+  if (!rows.length) return;
+  const head = el("tr");
+  columns.forEach((c) => head.appendChild(el("th", {}, c)));
+  table.appendChild(el("thead")).appendChild(head);
+  const body = el("tbody");
+  for (const row of rows) {
+    const tr = el("tr");
+    for (const c of columns) {
+      const v = row[c];
+      const isNum = typeof v === "number";
+      tr.appendChild(el("td", isNum ? { class: "num" } : {}, v === null ? "NULL" : isNum ? v.toLocaleString("ru-RU") : String(v)));
+    }
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+}
+
+async function renderChart(spec) {
+  $("chartPanel").classList.toggle("hidden", !spec);
+  $("chart").replaceChildren();
+  if (!spec) return;
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  try {
+    await vegaEmbed("#chart", spec, { actions: { export: true, source: true, compiled: false, editor: true }, theme: dark ? "dark" : undefined, renderer: "svg" });
+  } catch (e) { $("chart").textContent = "Не удалось отрисовать график: " + e; }
+}
+
+async function ask() {
+  const question = $("question").value.trim();
+  if (question.length < 3) return;
+  const btn = $("askBtn");
+  btn.disabled = true; btn.replaceChildren(el("span", { class: "spinner" }), document.createTextNode("Думаю…"));
+  try {
+    const res = await fetch("/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    $("result").classList.remove("hidden");
+    $("details").classList.remove("hidden");
+    const status = $("status");
+    status.className = "status " + data.status;
+    status.textContent = `${STATUS_TEXT[data.status] || data.status} · попыток исправления: ${data.retry_count}`;
+    $("summary").textContent = data.summary;
+    const findings = $("findings"); findings.replaceChildren();
+    (data.key_findings || []).forEach((f) => findings.appendChild(el("li", {}, f)));
+    renderTrace(data.trace);
+    $("elapsed").textContent = `Всего: ${data.elapsed_ms} ms · LLM: ${data.llm_provider}`;
+    $("sql").textContent = data.sql || "—";
+    renderAttempts(data.attempts || []);
+    renderTable(data.columns, data.rows);
+    $("plan").textContent = JSON.stringify(data.plan, null, 2);
+    await renderChart(data.chart_spec);
+  } catch (e) {
+    $("result").classList.remove("hidden");
+    $("details").classList.add("hidden");
+    $("status").className = "status failed"; $("status").textContent = "Ошибка: " + e.message;
+    $("summary").textContent = ""; $("findings").replaceChildren();
+  } finally {
+    btn.disabled = false; btn.textContent = "Спросить";
+  }
+}
+
+$("askForm").addEventListener("submit", (e) => { e.preventDefault(); ask(); });
+$("question").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
+loadMeta();
+</script>
+</body>
+</html>
