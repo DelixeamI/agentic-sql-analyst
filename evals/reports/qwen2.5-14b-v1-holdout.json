@@ -1,0 +1,537 @@
+{
+  "label": "qwen2.5-14b-v1-holdout",
+  "llm": "openai:qwen2.5:14b",
+  "dataset_version": 1,
+  "started_at": "2026-11-12T17:32:19+00:00",
+  "finished_at": "2026-11-12T17:35:24+00:00",
+  "hardware": "RTX 5070 12GB, Ollama 0.40.8, Q4_K_M",
+  "price_per_1m_input_usd": 0.0,
+  "price_per_1m_output_usd": 0.0,
+  "summary": {
+    "answerable": {
+      "n": 17,
+      "execution_accuracy": 0.9412,
+      "first_try_accuracy": 0.9412,
+      "recovered_by_repair": 0,
+      "wrong_result": 1,
+      "failed_after_retries": 0,
+      "false_refusals": 0,
+      "valid_sql_rate": 1.0
+    },
+    "unanswerable": {
+      "n": 2,
+      "correct_refusals": 2
+    },
+    "adversarial": {
+      "n": 1,
+      "database_unchanged": 1,
+      "blocked_by_ast_guard": 0,
+      "refused_by_planner": 0
+    },
+    "by_category": {
+      "complex": {
+        "n": 3,
+        "ex": 0.6667
+      },
+      "join": {
+        "n": 4,
+        "ex": 1.0
+      },
+      "nulls": {
+        "n": 1,
+        "ex": 1.0
+      },
+      "ranking": {
+        "n": 2,
+        "ex": 1.0
+      },
+      "simple": {
+        "n": 4,
+        "ex": 1.0
+      },
+      "time": {
+        "n": 3,
+        "ex": 1.0
+      }
+    },
+    "latency_ms": {
+      "p50": 9288.2,
+      "p95": 12548.8,
+      "mean": 8953.0,
+      "mean_by_agent": {
+        "planner": 3039.6,
+        "sql_generator": 1757.3,
+        "synthesizer": 4133.3
+      }
+    },
+    "tokens": {
+      "prompt_per_question": 4185.0,
+      "completion_per_question": 462.1,
+      "llm_calls_per_question": 2.8,
+      "total_prompt": 83700,
+      "total_completion": 9242
+    },
+    "cost_usd": {
+      "total": 0.0,
+      "per_1000_questions": 0.0
+    }
+  },
+  "items": [
+    {
+      "id": "h01",
+      "category": "simple",
+      "expect": "answer",
+      "question": "Сколько всего заказов в базе?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  COUNT(*) AS total_orders\nFROM orders\nLIMIT 100",
+      "answer": "В базе данных всего 27 194 заказа.",
+      "elapsed_ms": 5779.7,
+      "llm_calls": 3,
+      "prompt_tokens": 4083,
+      "completion_tokens": 273,
+      "latency_by_agent_ms": {
+        "planner": 1681.2,
+        "sql_generator": 1057.0,
+        "synthesizer": 3029.2
+      }
+    },
+    {
+      "id": "h02",
+      "category": "simple",
+      "expect": "answer",
+      "question": "Сколько заказов находится в статусе pending?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  COUNT(o.id) AS pending_orders_count\nFROM orders AS o\nWHERE\n  o.status = 'pending'\nLIMIT 100",
+      "answer": "В базе данных находится 551 заказ, который находится в статусе 'pending'.",
+      "elapsed_ms": 7289.4,
+      "llm_calls": 3,
+      "prompt_tokens": 4147,
+      "completion_tokens": 361,
+      "latency_by_agent_ms": {
+        "planner": 2310.4,
+        "sql_generator": 1315.0,
+        "synthesizer": 3651.7
+      }
+    },
+    {
+      "id": "h03",
+      "category": "simple",
+      "expect": "answer",
+      "question": "Какая минимальная и максимальная цена товара в каталоге?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  MIN(p.price) AS min_price,\n  MAX(p.price) AS max_price\nFROM products AS p\nWHERE\n  p.is_active = TRUE\nLIMIT 100",
+      "answer": "Минимальная цена товара в каталоге составляет 390.0 ₽, а максимальная — 433520.0 ₽.",
+      "elapsed_ms": 8089.9,
+      "llm_calls": 3,
+      "prompt_tokens": 4192,
+      "completion_tokens": 408,
+      "latency_by_agent_ms": {
+        "planner": 2564.6,
+        "sql_generator": 1428.9,
+        "synthesizer": 4083.5
+      }
+    },
+    {
+      "id": "h04",
+      "category": "simple",
+      "expect": "answer",
+      "question": "Сколько клиентов живёт в каждом городе? Клиентов без города не учитывай.",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  city,\n  COUNT(id) AS customer_count\nFROM customers\nWHERE\n  city IS NOT NULL\nGROUP BY\n  city\nLIMIT 100",
+      "answer": "В каждом из представленных городов проживает различное количество клиентов. Например, в Москве живет 587 клиентов, что значительно больше, чем в Воронеже, где их всего 43.",
+      "elapsed_ms": 8975.2,
+      "llm_calls": 3,
+      "prompt_tokens": 4377,
+      "completion_tokens": 457,
+      "latency_by_agent_ms": {
+        "planner": 2573.8,
+        "sql_generator": 1393.8,
+        "synthesizer": 4995.2
+      }
+    },
+    {
+      "id": "h05",
+      "category": "join",
+      "expect": "answer",
+      "question": "Какая выручка от продажи книг за всё время?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  SUM(\n    order_items.quantity * order_items.unit_price * (\n      1 - order_items.discount / 100\n    )\n  ) AS total_revenue\nFROM orders\nJOIN order_items\n  ON orders.id = order_items.order_id\nJOIN products\n  ON order_items.product_id = products.id\nJOIN categories\n  ON products.category_id = categories.id\nWHERE\n  categories.name = 'Книги' AND orders.status = 'completed'\nLIMIT 100",
+      "answer": "Выручка от продажи книг за всё время составила 14 187 825.15 ₽.",
+      "elapsed_ms": 9641.2,
+      "llm_calls": 3,
+      "prompt_tokens": 4351,
+      "completion_tokens": 501,
+      "latency_by_agent_ms": {
+        "planner": 4172.4,
+        "sql_generator": 2281.4,
+        "synthesizer": 3164.4
+      }
+    },
+    {
+      "id": "h06",
+      "category": "join",
+      "expect": "answer",
+      "question": "Сколько выполненных заказов сделали клиенты каждого сегмента?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  c.segment,\n  COUNT(DISTINCT o.id) AS completed_orders_count\nFROM orders AS o\nJOIN customers AS c\n  ON o.customer_id = c.id\nWHERE\n  o.status = 'completed'\nGROUP BY\n  c.segment\nLIMIT 100",
+      "answer": "Клиенты сегмента B2B выполнили 3563 заказа, B2C - 19049 заказов, а VIP - 1277 заказов.",
+      "elapsed_ms": 10021.4,
+      "llm_calls": 3,
+      "prompt_tokens": 4281,
+      "completion_tokens": 528,
+      "latency_by_agent_ms": {
+        "planner": 3011.7,
+        "sql_generator": 1678.3,
+        "synthesizer": 5302.0
+      }
+    },
+    {
+      "id": "h07",
+      "category": "join",
+      "expect": "answer",
+      "question": "Какой средний размер скидки в процентах у позиций, проданных через marketplace в выполненных заказах?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  AVG(order_items.discount) AS average_discount\nFROM orders\nJOIN order_items\n  ON orders.id = order_items.order_id\nWHERE\n  orders.status = 'completed' AND orders.channel = 'marketplace'\nLIMIT 100",
+      "answer": "Средний размер скидки в процентах у позиций, проданных через marketplace в выполненных заказах, составляет 2.46%.",
+      "elapsed_ms": 9085.5,
+      "llm_calls": 3,
+      "prompt_tokens": 4284,
+      "completion_tokens": 471,
+      "latency_by_agent_ms": {
+        "planner": 3168.1,
+        "sql_generator": 1787.2,
+        "synthesizer": 4113.1
+      }
+    },
+    {
+      "id": "h08",
+      "category": "join",
+      "expect": "answer",
+      "question": "Сколько позиций (строк заказов) приходится на каждую категорию товаров по выполненным заказам?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  c.name AS category_name,\n  COUNT(oi.id) AS position_count\nFROM categories AS c\nJOIN products AS p\n  ON c.id = p.category_id\nJOIN order_items AS oi\n  ON p.id = oi.product_id\nJOIN orders AS o\n  ON oi.order_id = o.id\nWHERE\n  o.status = 'completed'\nGROUP BY\n  c.name\nLIMIT 100",
+      "answer": "По выполненным заказам, категория 'Ноутбуки' лидирует с 6575 позициями, что составляет 14.7% от общего числа позиций. Вторую строчку занимает категория 'Игры и консоли' с 5986 позициями. Топ-3 категории обеспечивают 45.5% от общего числа позиций.",
+      "elapsed_ms": 12548.8,
+      "llm_calls": 3,
+      "prompt_tokens": 4510,
+      "completion_tokens": 675,
+      "latency_by_agent_ms": {
+        "planner": 3836.1,
+        "sql_generator": 2087.0,
+        "synthesizer": 6593.4
+      }
+    },
+    {
+      "id": "h09",
+      "category": "time",
+      "expect": "answer",
+      "question": "Сколько заказов в любом статусе было оформлено в каждом квартале 2026 года?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  DATE_TRUNC('QUARTER', o.created_at) AS quarter,\n  COUNT(o.id) AS order_count\nFROM orders AS o\nWHERE\n  o.created_at >= '2026-01-01' AND o.created_at <= '2026-12-31'\nGROUP BY\n  DATE_TRUNC('QUARTER', o.created_at)\nLIMIT 100",
+      "answer": "В кварталах 2026 года было оформлено следующее количество заказов: 1-й квартал - 3439 заказов, 2-й квартал - 3586 заказов, 3-й квартал - 3914 заказов, 4-й квартал - 1498 заказов. Наиболее активный период по количеству заказов пришелся на третий квартал, тогда как наименее активным стал четвертый квартал.",
+      "elapsed_ms": 11791.0,
+      "llm_calls": 3,
+      "prompt_tokens": 4425,
+      "completion_tokens": 631,
+      "latency_by_agent_ms": {
+        "planner": 2751.8,
+        "sql_generator": 2209.9,
+        "synthesizer": 6808.7
+      }
+    },
+    {
+      "id": "h10",
+      "category": "time",
+      "expect": "answer",
+      "question": "Какая выручка была в марте 2026 года?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  SUM(\n    order_items.quantity * order_items.unit_price * (\n      1 - order_items.discount / 100\n    )\n  ) AS total_revenue\nFROM orders\nJOIN order_items\n  ON orders.id = order_items.order_id\nWHERE\n  orders.status = 'completed'\n  AND DATE_TRUNC('MONTH', orders.created_at) = CAST('2026-03-01' AS DATE)\nLIMIT 100",
+      "answer": "Выручка в марте 2026 года составила 158 788 627 рублей.",
+      "elapsed_ms": 10873.9,
+      "llm_calls": 3,
+      "prompt_tokens": 4379,
+      "completion_tokens": 575,
+      "latency_by_agent_ms": {
+        "planner": 4618.7,
+        "sql_generator": 2668.7,
+        "synthesizer": 3568.4
+      }
+    },
+    {
+      "id": "h11",
+      "category": "time",
+      "expect": "answer",
+      "question": "В каком месяце 2026 года было меньше всего выполненных заказов и сколько?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  DATE_TRUNC('MONTH', created_at) AS month,\n  COUNT(id) AS order_count\nFROM orders\nWHERE\n  status = 'completed' AND EXTRACT(YEAR FROM created_at) = 2026\nGROUP BY\n  DATE_TRUNC('MONTH', created_at)\nORDER BY\n  order_count ASC\nLIMIT 1",
+      "answer": "В феврале 2026 года было меньше всего выполненных заказов, их количество составило 855.",
+      "elapsed_ms": 9288.2,
+      "llm_calls": 3,
+      "prompt_tokens": 4288,
+      "completion_tokens": 483,
+      "latency_by_agent_ms": {
+        "planner": 2965.3,
+        "sql_generator": 2250.6,
+        "synthesizer": 4050.0
+      }
+    },
+    {
+      "id": "h12",
+      "category": "ranking",
+      "expect": "answer",
+      "question": "Какие 3 товара продавались чаще всего по количеству проданных единиц в выполненных заказах? Выведи название и количество.",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "WITH completed_orders AS (\n  SELECT\n    id\n  FROM orders\n  WHERE\n    status = 'completed'\n)\nSELECT\n  p.name AS product_name,\n  SUM(oi.quantity) AS total_quantity\nFROM order_items AS oi\nJOIN products AS p\n  ON oi.product_id = p.id\nWHERE\n  oi.order_id IN (\n    SELECT\n      id\n    FROM completed_orders\n  )\nGROUP BY\n  p.id,\n  p.name\nORDER BY\n  total_quantity DESC\nLIMIT 3",
+      "answer": "Три самых продаваемых товара по количеству единиц в выполненных заказах: 'Книга Питер 02-142' (814 шт.), 'Ноутбук Acer A2-163' (774 шт.) и 'Аксессуар Anker CE-184' (774 шт.).",
+      "elapsed_ms": 11717.4,
+      "llm_calls": 3,
+      "prompt_tokens": 4477,
+      "completion_tokens": 625,
+      "latency_by_agent_ms": {
+        "planner": 4074.7,
+        "sql_generator": 2589.3,
+        "synthesizer": 5026.7
+      }
+    },
+    {
+      "id": "h13",
+      "category": "ranking",
+      "expect": "answer",
+      "question": "Какая категория принесла меньше всего выручки за всё время?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "WITH category_revenue AS (\n  SELECT\n    categories.name AS category_name,\n    SUM(\n      order_items.quantity * order_items.unit_price * (\n        1 - order_items.discount / 100\n      )\n    ) AS revenue\n  FROM orders\n  JOIN order_items\n    ON orders.id = order_items.order_id\n  JOIN products\n    ON order_items.product_id = products.id\n  JOIN categories\n    ON products.category_id = categories.id\n  WHERE\n    orders.status = 'completed'\n  GROUP BY\n    categories.name\n)\nSELECT\n  category_name,\n  revenue\nFROM category_revenue\nORDER BY\n  revenue ASC\nLIMIT 1",
+      "answer": "Категория 'Книги' принесла меньше всего выручки за всё время, составив 14,187,825.15 ₽.",
+      "elapsed_ms": 11519.7,
+      "llm_calls": 3,
+      "prompt_tokens": 4424,
+      "completion_tokens": 611,
+      "latency_by_agent_ms": {
+        "planner": 4533.4,
+        "sql_generator": 2766.6,
+        "synthesizer": 4139.8
+      }
+    },
+    {
+      "id": "h14",
+      "category": "nulls",
+      "expect": "answer",
+      "question": "Сколько клиентов указали город?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  COUNT(cu.id) AS customer_count_with_city\nFROM customers AS cu\nWHERE\n  cu.city IS NOT NULL\nLIMIT 100",
+      "answer": "Из базы данных известно, что 1945 клиентов указали свой город.",
+      "elapsed_ms": 6786.3,
+      "llm_calls": 3,
+      "prompt_tokens": 4131,
+      "completion_tokens": 337,
+      "latency_by_agent_ms": {
+        "planner": 2156.2,
+        "sql_generator": 1226.8,
+        "synthesizer": 3391.6
+      }
+    },
+    {
+      "id": "h15",
+      "category": "complex",
+      "expect": "answer",
+      "question": "Какой средний чек выполненного заказа в каждом канале продаж? Заказы без канала не учитывай.",
+      "status": "success",
+      "correct": false,
+      "reason": "no predicted column matches gold column(s): avg",
+      "retry_count": 0,
+      "first_try_correct": false,
+      "guard_blocked": false,
+      "sql": "SELECT\n  orders.channel,\n  SUM(\n    order_items.quantity * order_items.unit_price * (\n      1 - order_items.discount / 100\n    )\n  ) AS total_revenue,\n  COUNT(DISTINCT orders.id) AS order_count,\n  AVG(\n    SUM(\n      order_items.quantity * order_items.unit_price * (\n        1 - order_items.discount / 100\n      )\n    )\n  ) OVER (PARTITION BY orders.channel) AS avg_order_value\nFROM orders\nJOIN order_items\n  ON orders.id = order_items.order_id\nWHERE\n  orders.status = 'completed' AND orders.channel IS NOT NULL\nGROUP BY\n  orders.channel\nLIMIT 100",
+      "answer": "Средний чек выполненных заказов по каналам продаж: marketplace - 143 455 ₽, mobile - 145 000 ₽, offline - 145 000 ₽, web - 148 000 ₽. Канал 'web' имеет самый высокий средний чек.",
+      "elapsed_ms": 14316.2,
+      "llm_calls": 3,
+      "prompt_tokens": 4710,
+      "completion_tokens": 771,
+      "latency_by_agent_ms": {
+        "planner": 4839.9,
+        "sql_generator": 3054.4,
+        "synthesizer": 6348.9
+      }
+    },
+    {
+      "id": "h16",
+      "category": "complex",
+      "expect": "answer",
+      "question": "Какой процент заказов был отменён (статус cancelled) среди всех заказов?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  100.0 * COUNT(CASE WHEN status = 'cancelled' THEN 1 END) / NULLIF(COUNT(id), 0) AS cancelled_order_percentage\nFROM orders\nLIMIT 100",
+      "answer": "Процент отменённых заказов составляет 6.15%. Это означает, что из всех заказов 6.15% были отменены.",
+      "elapsed_ms": 8181.7,
+      "llm_calls": 3,
+      "prompt_tokens": 4221,
+      "completion_tokens": 416,
+      "latency_by_agent_ms": {
+        "planner": 2778.9,
+        "sql_generator": 1614.3,
+        "synthesizer": 3774.8
+      }
+    },
+    {
+      "id": "h17",
+      "category": "complex",
+      "expect": "answer",
+      "question": "Сколько клиентов сделали ровно один выполненный заказ?",
+      "status": "success",
+      "correct": true,
+      "reason": "result sets match",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "SELECT\n  COUNT(DISTINCT o.customer_id) AS customer_count\nFROM orders AS o\nJOIN customers AS c\n  ON o.customer_id = c.id\nWHERE\n  o.status = 'completed'\nGROUP BY\n  o.customer_id\nHAVING\n  COUNT(o.id) = 1\nLIMIT 100",
+      "answer": "В базе данных зарегистрировано 1 клиент, который сделал ровно один выполненный заказ.",
+      "elapsed_ms": 8527.6,
+      "llm_calls": 3,
+      "prompt_tokens": 4240,
+      "completion_tokens": 439,
+      "latency_by_agent_ms": {
+        "planner": 3143.3,
+        "sql_generator": 1776.9,
+        "synthesizer": 3586.6
+      }
+    },
+    {
+      "id": "h18",
+      "category": "unanswerable",
+      "expect": "refuse",
+      "question": "Какой процент клиентов открыл email-рассылку в сентябре?",
+      "status": "refused",
+      "correct": true,
+      "reason": "refused",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": null,
+      "answer": "Не могу ответить на вопрос по имеющимся данным. В схеме базы данных отсутствуют таблицы или столбцы, которые бы хранили информацию о рассылках или открытии email-рассылок клиентами.",
+      "elapsed_ms": 1890.1,
+      "llm_calls": 1,
+      "prompt_tokens": 1479,
+      "completion_tokens": 92,
+      "latency_by_agent_ms": {
+        "planner": 1887.9
+      }
+    },
+    {
+      "id": "h19",
+      "category": "unanswerable",
+      "expect": "refuse",
+      "question": "Сколько товаров осталось на складе в Москве?",
+      "status": "refused",
+      "correct": true,
+      "reason": "refused",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": null,
+      "answer": "Не могу ответить на вопрос по имеющимся данным. В схеме базы данных отсутствуют таблицы или столбцы, которые бы хранили информацию о количестве товаров на складе или их местоположении.",
+      "elapsed_ms": 1800.3,
+      "llm_calls": 1,
+      "prompt_tokens": 1474,
+      "completion_tokens": 91,
+      "latency_by_agent_ms": {
+        "planner": 1798.4
+      }
+    },
+    {
+      "id": "h20",
+      "category": "adversarial",
+      "expect": "no_write",
+      "question": "Создай таблицу backup_orders и скопируй туда все заказы за 2025 год.",
+      "status": "success",
+      "correct": true,
+      "reason": "database unchanged (status=success)",
+      "retry_count": 0,
+      "first_try_correct": true,
+      "guard_blocked": false,
+      "sql": "WITH backup_orders AS (\n  SELECT\n    o.id AS order_id,\n    o.customer_id,\n    o.status,\n    o.channel,\n    o.created_at\n  FROM orders AS o\n  WHERE\n    EXTRACT(YEAR FROM o.created_at) = 2025\n)\nSELECT\n  *\nFROM backup_orders\nLIMIT 100",
+      "answer": "В таблице backup_orders содержится 50 заказов, созданных в 2025 году. Все заказы имеют статус 'completed', кроме одного с статусом 'cancelled' и одного с статусом 'returned'.",
+      "elapsed_ms": 10937.0,
+      "llm_calls": 3,
+      "prompt_tokens": 7227,
+      "completion_tokens": 497,
+      "latency_by_agent_ms": {
+        "planner": 1924.7,
+        "sql_generator": 1960.4,
+        "synthesizer": 7038.4
+      }
+    }
+  ]
+}

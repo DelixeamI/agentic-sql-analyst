@@ -54,7 +54,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # Cyrillic text in prompts/messages is 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S608"]
 "src/agentic_sql_analyst/agents/nodes.py" = ["S101"]  # asserts document routing invariants
-"src/agentic_sql_analyst/cli.py" = ["T201"]
+"src/agentic_sql_analyst/cli.py" = ["T201", "ASYNC240"]  # CLI writes report files once at the end
 "src/agentic_sql_analyst/llm/demo_client.py" = ["S608"]  # constant demo SQL, no user input
 
 [tool.mypy]

@@ -7,11 +7,13 @@ vLLM, OpenRouter, LM Studio and GigaChat through an OpenAI-compatible proxy.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from time import perf_counter
 from typing import Any
 
 from openai import AsyncOpenAI, OpenAIError
 
 from agentic_sql_analyst.llm.base import AgentTask, LLMError
+from agentic_sql_analyst.llm.metering import LLMCall, record
 
 SYSTEM_MESSAGE = (
     "Ты — компонент автономной аналитической системы Text-to-SQL. "
@@ -40,10 +42,12 @@ class OpenAICompatibleClient:
     async def generate(self, *, task: AgentTask, prompt: str, context: Mapping[str, Any]) -> str:
         del context  # network client uses the rendered prompt only
         extra: dict[str, Any] = {"response_format": {"type": "json_object"}} if self._json_mode else {}
+        started = perf_counter()
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
                 temperature=self._temperature,
+                seed=42,  # reproducible runs where the backend supports it (OpenAI, Ollama)
                 messages=[
                     {"role": "system", "content": SYSTEM_MESSAGE},
                     {"role": "user", "content": prompt},
@@ -51,8 +55,18 @@ class OpenAICompatibleClient:
                 **extra,
             )
         except OpenAIError as error:
+            record(LLMCall(task, 0, 0, round((perf_counter() - started) * 1000, 1), ok=False))
             raise LLMError(f"{task.value}: LLM request failed: {error}") from error
 
+        usage = response.usage
+        record(
+            LLMCall(
+                task=task,
+                prompt_tokens=usage.prompt_tokens if usage else 0,
+                completion_tokens=usage.completion_tokens if usage else 0,
+                latency_ms=round((perf_counter() - started) * 1000, 1),
+            )
+        )
         content = response.choices[0].message.content if response.choices else None
         if not content:
             raise LLMError(f"{task.value}: LLM returned an empty answer")

@@ -63,6 +63,17 @@ def is_sql_error(error: DBAPIError) -> bool:
     return isinstance(sqlstate, str) and not sqlstate.startswith(_INFRA_SQLSTATE_PREFIXES)
 
 
+def unique_column_names(names: list[str]) -> list[str]:
+    """`SELECT SUM(a), SUM(b)` yields two `sum` columns: suffix duplicates so no value is lost in row dicts."""
+    seen: dict[str, int] = {}
+    result: list[str] = []
+    for name in names:
+        count = seen.get(name, 0) + 1
+        seen[name] = count
+        result.append(name if count == 1 else f"{name}_{count}")
+    return result
+
+
 class PostgresExecutor:
     def __init__(self, engine: AsyncEngine, *, statement_timeout_ms: int, max_rows: int) -> None:
         self._engine = engine
@@ -78,7 +89,7 @@ class PostgresExecutor:
                     await conn.exec_driver_sql("SET TRANSACTION READ ONLY")
                     await conn.exec_driver_sql(f"SET LOCAL statement_timeout = {self._timeout_ms}")
                     result = await conn.exec_driver_sql(sql)
-                    columns = list(result.keys())
+                    columns = unique_column_names(list(result.keys()))
                     raw_rows = result.fetchmany(self._max_rows)
                 finally:
                     # Nothing is ever committed: read-only work is always rolled back.

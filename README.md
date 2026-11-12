@@ -6,7 +6,7 @@
 ![LangGraph](https://img.shields.io/badge/LangGraph-state_machine-1C3C3C.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg?logo=postgresql&logoColor=white)
-![tests](https://img.shields.io/badge/tests-111_passed-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-129_passed-brightgreen.svg)
 ![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)
 ![Checked with mypy](https://img.shields.io/badge/mypy-strict-blue.svg)
 
@@ -159,10 +159,43 @@ curl -s localhost:8000/query -H "Content-Type: application/json" \
 
 ---
 
+## Оценка качества на реальной LLM
+
+Демо-режим доказывает, что пайплайн работает. Насколько хорошо он работает, измеряет прогон на локальной `qwen2.5:14b` (Ollama, RTX 5070 12 GB, Q4_K_M) по золотому набору с эталонным SQL. Методика описана в [evals/README.md](evals/README.md), полные отчёты по каждому вопросу лежат в [evals/reports](evals/reports).
+
+Метрика — **execution accuracy**: сравниваются результаты выполнения предсказанного и эталонного SQL, а не текст запроса.
+
+| | Baseline (v0) | После правок (v1) | **Holdout (v1)** |
+|---|---|---|---|
+| Execution accuracy | 42.9% (18/42) | 83.3% (35/42) | **94.1% (16/17)** |
+| С первой попытки, без repair | 38.1% | 76.2% | 94.1% |
+| Исполнимый SQL | 71.4% | 100% | 100% |
+| Корректный отказ на вопросы вне схемы | 0/5 | 5/5 | 2/2 |
+| Prompt injection: база не изменилась | 3/3 | 3/3 | 1/1 |
+| Latency p50 / p95 | 10.6 / 57.6 s | 10.7 / 25.6 s | 9.3 / 12.5 s |
+| Вызовов LLM / токенов на вопрос | 2.4 / 3.8k | 2.8 / 4.7k | 2.8 / 4.6k |
+| Стоимость API | $0 (локально) | $0 | $0 |
+
+**Как получен рост.** Baseline показал конкретные причины ошибок, каждая исправлена общим правилом, без подгонки под вопросы:
+- строгий Pydantic-контракт отклонял `null` и списки вместо строк от реальной модели → толерантный базовый `LLMContract`;
+- пример в промпте планировщика содержал фильтр `created_at >= '2026-01-01'`, модель копировала его в чужие вопросы → примеры заменены описаниями полей;
+- пример SQL в промпте генератора считал выручку без скидки → правило «формулы метрик брать из комментариев схемы»;
+- группировка клиентов по имени вместо `id`, список вместо одного числа, процент с отфильтрованным знаменателем → три явных правила корректности.
+
+**Holdout** (20 вопросов) написан до правок промптов и в настройке не участвовал, поэтому он показывает обобщение. Self-repair loop добавляет +7 п.п. на dev-наборе (76.2% → 83.3%). Около 45% времени ответа занимает синтезатор текста и графика: SQL-часть готова примерно за 6 секунд.
+
+`qwen3:8b` (частичный прогон, 41 из 42 вопросов): 35/41 = 85.4%, но ~30 с на вопрос из-за режима рассуждений и выбросы до 390 с. Для интерактивного сервиса `qwen2.5:14b` выгоднее.
+
+```bash
+uv run analyst eval --model qwen2.5:14b --base-url http://localhost:11434/v1
+```
+
+---
+
 ## Тесты и качество
 
 ```bash
-uv run pytest            # 111 тестов; интеграционные поднимают PostgreSQL через testcontainers
+uv run pytest            # 129 тестов; интеграционные поднимают PostgreSQL через testcontainers
 uv run ruff check src tests
 uv run mypy              # strict
 ```

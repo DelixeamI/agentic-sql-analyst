@@ -11,6 +11,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, ValidationError
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 
 class AgentTask(StrEnum):
@@ -39,7 +40,7 @@ class LLMClient(Protocol):
 
 def extract_json_object(raw: str) -> dict[str, Any]:
     """Extract the first JSON object from an LLM answer (tolerates fences and chatter)."""
-    text = raw.strip()
+    text = _THINK_RE.sub("", raw).strip()  # reasoning models (qwen3) may prepend <think>…</think>
     fenced = _FENCE_RE.search(text)
     if fenced:
         text = fenced.group(1).strip()

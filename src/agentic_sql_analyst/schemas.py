@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import types
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 JsonRow = dict[str, Any]
 
@@ -13,10 +14,45 @@ JsonRow = dict[str, Any]
 # --------------------------------------------------------------------------- #
 # LLM output contracts (validated after every LLM call)
 # --------------------------------------------------------------------------- #
-class PlannerOutput(BaseModel):
-    """Planner & Schema Inspector agent output."""
+def _accepts(annotation: Any, kind: type) -> bool:
+    """True when `annotation` is `kind`, `kind[...]` or a union that contains one of them."""
+    origin = get_origin(annotation)
+    if origin in (Union, types.UnionType):
+        return any(_accepts(arg, kind) for arg in get_args(annotation))
+    return annotation is kind or origin is kind
+
+
+class LLMContract(BaseModel):
+    """Base for LLM outputs: tolerate harmless shape drift of real models, keep strict types inside.
+
+    Observed on local models: `null` instead of "" or [], a list where a string is expected
+    (`"missing_data": ["..."]`) and a bare string where a list is expected.
+    """
 
     model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_shapes(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        coerced = dict(data)
+        for name, field in cls.model_fields.items():
+            if name not in coerced:
+                continue
+            value = coerced[name]
+            accepts_none = _accepts(field.annotation, type(None))
+            if value is None and not accepts_none and not field.is_required():
+                del coerced[name]  # fall back to the field default
+            elif isinstance(value, list) and _accepts(field.annotation, str) and not _accepts(field.annotation, list):
+                coerced[name] = "; ".join(str(item) for item in value)
+            elif isinstance(value, str) and _accepts(field.annotation, list):
+                coerced[name] = [value] if value.strip() else []
+        return coerced
+
+
+class PlannerOutput(LLMContract):
+    """Planner & Schema Inspector agent output."""
 
     is_answerable: bool = True
     missing_data: str | None = None
@@ -27,29 +63,23 @@ class PlannerOutput(BaseModel):
     reasoning_steps: list[str] = Field(default_factory=list)
 
 
-class SqlGenerationOutput(BaseModel):
+class SqlGenerationOutput(LLMContract):
     """SQL Generator agent output."""
-
-    model_config = ConfigDict(extra="ignore")
 
     sql: str = Field(min_length=1)
     explanation: str = ""
 
 
-class SqlRepairOutput(BaseModel):
+class SqlRepairOutput(LLMContract):
     """Error Repair Loop agent output."""
-
-    model_config = ConfigDict(extra="ignore")
 
     error_cause: str = ""
     corrected_sql: str = Field(min_length=1)
     changes_made: str = ""
 
 
-class SynthesisOutput(BaseModel):
+class SynthesisOutput(LLMContract):
     """Data Synthesizer agent output."""
-
-    model_config = ConfigDict(extra="ignore")
 
     summary: str = Field(min_length=1)
     key_findings: list[str] = Field(default_factory=list)
@@ -133,6 +163,16 @@ class QueryRequest(BaseModel):
         return stripped
 
 
+class LLMUsage(BaseModel):
+    """Aggregated LLM usage of one question (all agents, all repair attempts)."""
+
+    calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: float = 0.0
+    latency_by_agent_ms: dict[str, float] = Field(default_factory=dict)
+
+
 class QueryResponse(BaseModel):
     question: str
     status: RunStatus
@@ -148,6 +188,7 @@ class QueryResponse(BaseModel):
     chart_spec: dict[str, Any] | None = None
     trace: list[TraceStep] = Field(default_factory=list)
     llm_provider: str
+    llm_usage: LLMUsage = Field(default_factory=LLMUsage)
     elapsed_ms: float
 
 

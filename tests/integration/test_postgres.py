@@ -172,3 +172,20 @@ async def test_unreachable_database_raises_infrastructure_error() -> None:
             await PostgresExecutor(dead, statement_timeout_ms=1000, max_rows=1).execute("SELECT 1")
     finally:
         await dead.dispose()
+
+
+EVAL_DIR = Path(__file__).resolve().parents[2] / "evals"
+
+
+@pytest.mark.parametrize("dataset", ["questions.json", "holdout.json"])
+async def test_eval_gold_sql_executes(engine: AsyncEngine, dataset: str) -> None:
+    from agentic_sql_analyst.evals.runner import load_dataset
+
+    gold_executor = PostgresExecutor(engine, statement_timeout_ms=30_000, max_rows=10_000)
+    _, items = load_dataset(EVAL_DIR / dataset)
+    for item in items:
+        if item.gold_sql is None:
+            continue
+        result = await gold_executor.execute(item.gold_sql)
+        assert result.ok, f"{item.id}: {result.error}"
+        assert result.rows, item.id

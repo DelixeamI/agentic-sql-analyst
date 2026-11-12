@@ -13,7 +13,8 @@ from agentic_sql_analyst.config import Settings
 from agentic_sql_analyst.db import PostgresExecutor, PostgresSchemaInspector, SchemaProvider, create_engine, ping
 from agentic_sql_analyst.graph import build_graph
 from agentic_sql_analyst.llm import LLMClient, create_llm_client
-from agentic_sql_analyst.schemas import AgentState, QueryResponse, RunStatus
+from agentic_sql_analyst.llm.metering import metered
+from agentic_sql_analyst.schemas import AgentState, LLMUsage, QueryResponse, RunStatus
 
 RECURSION_LIMIT = 60
 
@@ -37,7 +38,8 @@ class AnalystService:
 
     async def ask(self, question: str) -> QueryResponse:
         started = perf_counter()
-        state = await self.run(question)
+        with metered() as meter:
+            state = await self.run(question)
         rows = (state.query_result or []) if state.status is RunStatus.SUCCESS else []
         return QueryResponse(
             question=state.question,
@@ -54,6 +56,13 @@ class AnalystService:
             chart_spec=state.chart_spec,
             trace=state.trace,
             llm_provider=self.llm_name,
+            llm_usage=LLMUsage(
+                calls=len(meter.calls),
+                prompt_tokens=meter.prompt_tokens,
+                completion_tokens=meter.completion_tokens,
+                latency_ms=meter.latency_ms,
+                latency_by_agent_ms=meter.by_task(),
+            ),
             elapsed_ms=round((perf_counter() - started) * 1000, 1),
         )
 
